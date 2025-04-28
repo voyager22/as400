@@ -1,0 +1,61 @@
+import java.io.*;
+import java.util.*;
+import java.util.regex.*;
+
+public class CobolPerformThruParser {
+
+    public static void main(String[] args) throws IOException {
+        String cobolFilePath = "sample.cob"; // Your COBOL file
+        Map<String, List<String>> performRelations = new LinkedHashMap<>();
+        
+        BufferedReader reader = new BufferedReader(new FileReader(cobolFilePath));
+        String line;
+        String currentParagraph = null;
+        
+        Pattern paragraphPattern = Pattern.compile("^\\s*(\\d{4}-\\w+)\\.");
+        Pattern performSimplePattern = Pattern.compile("\\bPERFORM\\s+(\\d{4}-\\w+)\\b", Pattern.CASE_INSENSITIVE);
+        Pattern performThruPattern = Pattern.compile("\\bPERFORM\\s+(\\d{4}-\\w+)\\s+THRU\\s+(\\d{4}-\\w+)", Pattern.CASE_INSENSITIVE);
+
+        while ((line = reader.readLine()) != null) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            
+            Matcher paragraphMatcher = paragraphPattern.matcher(line);
+            if (paragraphMatcher.find()) {
+                currentParagraph = paragraphMatcher.group(1);
+                performRelations.putIfAbsent(currentParagraph, new ArrayList<>());
+            }
+            
+            Matcher performThruMatcher = performThruPattern.matcher(line);
+            while (performThruMatcher.find()) {
+                String startPara = performThruMatcher.group(1);
+                String endPara = performThruMatcher.group(2);
+                if (currentParagraph != null) {
+                    performRelations.get(currentParagraph).add(startPara + "-TO-" + endPara);
+                }
+            }
+            
+            Matcher performSimpleMatcher = performSimplePattern.matcher(line);
+            while (performSimpleMatcher.find()) {
+                // Avoid matching if already matched by THRU
+                if (!performThruPattern.matcher(line).find()) {
+                    String calledPara = performSimpleMatcher.group(1);
+                    if (currentParagraph != null) {
+                        performRelations.get(currentParagraph).add(calledPara);
+                    }
+                }
+            }
+        }
+        reader.close();
+        
+        // Output
+        System.out.println("PERFORM Relationships:");
+        for (Map.Entry<String, List<String>> entry : performRelations.entrySet()) {
+            String caller = entry.getKey();
+            List<String> callees = entry.getValue();
+            if (!callees.isEmpty()) {
+                System.out.println(caller + " PERFORMS " + String.join(", ", callees));
+            }
+        }
+    }
+}
