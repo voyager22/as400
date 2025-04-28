@@ -1,0 +1,50 @@
+import java.io.*;
+import java.util.*;
+import java.util.regex.*;
+
+public class CobolPerformParser {
+
+    public static void main(String[] args) throws IOException {
+        String cobolFilePath = "sample.cob"; // Path to your COBOL source file
+        Map<String, List<String>> performRelations = new LinkedHashMap<>();
+        
+        BufferedReader reader = new BufferedReader(new FileReader(cobolFilePath));
+        String line;
+        String currentParagraph = null;
+        
+        Pattern paragraphPattern = Pattern.compile("^\\s*(\\w[\\w-]*)\\s*\\.");
+        Pattern performPattern = Pattern.compile("\\bPERFORM\\s+(\\w[\\w-]*)", Pattern.CASE_INSENSITIVE);
+
+        while ((line = reader.readLine()) != null) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            
+            // Check if this line defines a new paragraph
+            Matcher paragraphMatcher = paragraphPattern.matcher(line);
+            if (paragraphMatcher.find()) {
+                currentParagraph = paragraphMatcher.group(1);
+                performRelations.putIfAbsent(currentParagraph, new ArrayList<>());
+            }
+            
+            // Check if this line contains a PERFORM
+            Matcher performMatcher = performPattern.matcher(line);
+            while (performMatcher.find()) {
+                String calledParagraph = performMatcher.group(1);
+                if (currentParagraph != null) {
+                    performRelations.get(currentParagraph).add(calledParagraph);
+                }
+            }
+        }
+        reader.close();
+        
+        // Output the results
+        System.out.println("PERFORM Relationships:");
+        for (Map.Entry<String, List<String>> entry : performRelations.entrySet()) {
+            String caller = entry.getKey();
+            List<String> callees = entry.getValue();
+            if (!callees.isEmpty()) {
+                System.out.println(caller + " PERFORMS " + String.join(", ", callees));
+            }
+        }
+    }
+}
